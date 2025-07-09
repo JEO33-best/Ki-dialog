@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>KI-Dialog Online</title>
+  <style>
+    body { font-family: sans-serif; background: #eef; padding: 20px; }
+    #log { background: #fff; border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
+    input, button { padding: 8px; margin: 5px 0; width: 100%; }
+    #userList { margin-top: 10px; background: #fff; padding: 5px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h2>🧠 KI-Dialog System</h2>
+  <div id="log"></div>
+
+  <input id="nameInput" placeholder="Dein Name">
+  <select id="roleSelect">
+    <option value="user">Normal</option>
+    <option value="admin">Admin</option>
+    <option value="owner">Owner</option>
+  </select>
+  <button onclick="verbinden()">🔌 Verbinden</button>
+
+  <input id="msgInput" placeholder="Nachricht an KI">
+  <button onclick="sendeNachricht()">➡️ Senden</button>
+
+  <input id="cmdInput" placeholder="Admin-Befehl (start, stop, reset)">
+  <button onclick="sendeBefehl()">🛠️ Befehl</button>
+
+  <div id="userList"><strong>Benutzer:</strong></div>
+
+  <script>
+    let socket;
+
+    function log(msg) {
+      const logDiv = document.getElementById("log");
+      logDiv.innerHTML += msg + "<br>";
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function verbinden() {
+      const name = document.getElementById("nameInput").value.trim();
+      const role = document.getElementById("roleSelect").value;
+      if (!name) return alert("Bitte gib einen Namen ein!");
+
+      socket = new WebSocket("wss://ki-dialog.onrender.com");
+
+      socket.addEventListener("open", () => {
+        socket.send(JSON.stringify({ type: "login", name, role }));
+        log("✅ Verbunden als " + name + " (" + role + ")");
+      });
+
+      socket.addEventListener("message", (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "log") {
+          log(data.text);
+        } else if (data.type === "userListUpdate") {
+          const list = document.getElementById("userList");
+          list.innerHTML = "<strong>Benutzer:</strong><br>" + data.userList.join("<br>");
+        }
+      });
+
+      socket.addEventListener("close", () => log("❌ Verbindung getrennt."));
+    }
+
+    function sendeNachricht() {
+      const text = document.getElementById("msgInput").value;
+      if (socket && socket.readyState === 1) {
+        socket.send(JSON.stringify({ type: "message", text }));
+        document.getElementById("msgInput").value = "";
+      } else {
+        alert("Nicht verbunden!");
+      }
+    }
+
+    function sendeBefehl() {
+      const cmd = document.getElementById("cmdInput").value;
+      if (socket && socket.readyState === 1) {
+        socket.send(JSON.stringify({ type: "command", command: cmd }));
+        document.getElementById("cmdInput").value = "";
+      } else {
+        alert("Nicht verbunden!");
+      }
+    }
+  </script>
+</body>
+</html>
